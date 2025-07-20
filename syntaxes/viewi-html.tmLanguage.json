@@ -1,0 +1,134 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Viewi HTML",
+  "scopeName": "text.html.viewi",
+  "patterns": [
+    {
+      "include": "#viewi-double-braces"
+    },
+    {
+      "include": "#viewi-single-braces"
+    },
+    {
+      "include": "#viewi-components"
+    },
+    {
+      "include": "text.html.basic"
+    }
+  ],
+  "repository": {
+    "viewi-double-braces": {
+      "name": "meta.embedded.block.viewi.double",
+      "begin": "{{",
+      "end": "}}",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.template-expression.begin.viewi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.template-expression.end.viewi"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#php-expression"
+        }
+      ]
+    },
+    "viewi-single-braces": {
+      "name": "meta.embedded.block.viewi.single",
+      "begin": "{(?!{)",
+      "end": "}(?!})",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.template-expression.begin.viewi"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.template-expression.end.viewi"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#php-expression"
+        }
+      ]
+    },
+    "viewi-components": {
+      "name": "meta.tag.viewi-component",
+      "begin": "(<)([A-Z][a-zA-Z0-9]*)",
+      "end": "(/>|>)",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.tag.begin.html"
+        },
+        "2": {
+          "name": "entity.name.tag.viewi-component"
+        }
+      },
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.tag.end.html"
+        }
+      },
+      "patterns": [
+        {
+          "include": "text.html.basic#attribute"
+        }
+      ]
+    },
+    "php-expression": {
+      "patterns": [
+        {
+          "name": "variable.other.php.viewi",
+          "match": "\\$[a-zA-Z_][a-zA-Z0-9_]*"
+        },
+        {
+          "name": "support.function.php.viewi",
+          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*(?=\\s*\\()"
+        },
+        {
+          "name": "keyword.operator.php.viewi",
+          "match": "\\+|\\-|\\*|\\/|%|==|!=|<|>|<=|>=|&&|\\|\\||!"
+        },
+        {
+          "name": "constant.numeric.php.viewi",
+          "match": "\\b\\d+(\\.\\d+)?\\b"
+        },
+        {
+          "name": "string.quoted.single.php.viewi",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.php.viewi",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.double.php.viewi",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.php.viewi",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "keyword.control.php.viewi",
+          "match": "\\b(if|else|elseif|endif|for|foreach|endfor|endforeach|while|endwhile|switch|case|default|break|continue|return)\\b"
+        },
+        {
+          "name": "constant.language.php.viewi",
+          "match": "\\b(true|false|null)\\b"
+        }
+      ]
+    }
+  }
+}

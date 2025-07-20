@@ -1,0 +1,32 @@
+<div>
+    <!-- Test 1: Variables in attributes -->
+    <PageLayout title="$title" class="$cssClass">
+    
+    <!-- Test 2: Variables with expressions in attributes -->
+    <div class="{ $isActive ? 'active' : 'inactive' }">
+    
+    <!-- Test 3: Method calls in attributes -->
+    <button onclick="{ handleClick() }">
+    
+    <!-- Test 4: Component tags without < prefix -->
+    UserCard
+    HomePage
+    MyButton
+    
+    <!-- Test 5: Variables with whitespace in braces -->
+    <p>{ $title }</p>
+    <p>{{  $isActive  }}</p>
+    
+    <!-- Test 6: Method calls with whitespace -->
+    <span>{ getName() }</span>
+    <span>{{  getTitle()  }}</span>
+    
+    <!-- Test 7: Mixed content -->
+    <div data-value="$dataValue" class="{ $theme }">
+        Content: { $content }
+        Status: {{ getStatus() }}
+    </div>
+    
+    <!-- Test 8: Attribute names with variables -->
+    <input $dynamicAttr="value" type="text">
+</div>

@@ -1,0 +1,71 @@
+{
+  "name": "viewi-components",
+  "displayName": "Viewi Components",
+  "description": "VSCode support for Viewi PHP/HTML components with syntax highlighting and autocomplete",
+  "version": "1.0.0",
+  "publisher": "viewi",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Other"
+  ],
+  "keywords": [
+    "viewi",
+    "php",
+    "html",
+    "components",
+    "autocomplete"
+  ],
+  "activationEvents": [
+    "onLanguage:html",
+    "onLanguage:php"
+  ],
+  "main": "./client/dist/extension.js",
+  "contributes": {
+    "grammars": [
+      {
+        "scopeName": "text.html.viewi",
+        "path": "./syntaxes/viewi-html.tmLanguage.json",
+        "injectTo": [
+          "text.html.basic"
+        ]
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Viewi Components",
+      "properties": {
+        "viewi.enableAutocompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable autocompletion for Viewi components"
+        },
+        "viewi.componentSearchPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["src", "components"],
+          "description": "Paths to search for Viewi components"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./client && tsc -p ./server",
+    "watch": "tsc -b -w",
+    "postinstall": "cd client && npm install && cd ../server && npm install && cd .."
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.1.0"
+  }
+}

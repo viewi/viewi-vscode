@@ -1,0 +1,14 @@
+{
+  "name": "viewi-components-server",
+  "description": "Language server for Viewi Components",
+  "version": "1.0.0",
+  "dependencies": {
+    "vscode-languageserver": "^8.1.0",
+    "vscode-languageserver-textdocument": "^1.0.8",
+    "vscode-uri": "^3.0.8"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0"
+  }
+}

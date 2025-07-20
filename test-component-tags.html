@@ -1,0 +1,22 @@
+<div>
+    <!-- Test component autocompletion without < prefix -->
+    <!-- Type "User" and it should suggest "<UserCard>" -->
+    <!-- Type "Home" and it should suggest "<HomePage>" -->
+    <!-- Type "My" and it should suggest "<MyButton>" -->
+    
+    <div class="container">
+        <!-- When typing component names, they should autocomplete to <ComponentName> -->
+        UserCard
+        HomePage
+        MyButton
+        TestCompletion
+        TestAdvanced
+    </div>
+    
+    <!-- Mixed content with components and variables -->
+    <div>
+        Content: $title
+        Component: UserCard
+        Status: { $isActive }
+    </div>
+</div>

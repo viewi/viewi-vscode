@@ -1,0 +1,18 @@
+<div class="home-page">
+    <h1>$title</h1>
+    
+    <div class="loading-section">
+        <p>Loading state: {$isLoading ? 'Loading...' : 'Ready'}</p>
+        <button onclick="{setLoading(!$isLoading)}">Toggle Loading</button>
+    </div>
+    
+    <div class="info-section">
+        <p>Component name: {getName()}</p>
+        <p>Page title: {{getTitle()}}</p>
+    </div>
+    
+    <div class="items-section">
+        <h3>Items count: {count($items)}</h3>
+        <p>Items: $items</p>
+    </div>
+</div>
