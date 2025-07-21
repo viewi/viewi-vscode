@@ -12,6 +12,7 @@ import {
   Position,
   Range
 } from 'vscode-languageserver/node';
+import * as fs from 'fs';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
@@ -59,7 +60,7 @@ connection.onInitialize((params: InitializeParams) => {
   // Initialize the parser with workspace root
   const workspaceRoot = params.workspaceFolders?.[0]?.uri || params.rootUri || '';
   const workspacePath = workspaceRoot.replace('file://', '');
-  
+
   // Get initial settings
   const initSettings = params.initializationOptions?.settings || defaultSettings;
   viewiParser = new ViewiParser(workspacePath, initSettings.componentSearchPaths);
@@ -71,6 +72,7 @@ connection.onInitialize((params: InitializeParams) => {
         resolveProvider: true,
         triggerCharacters: ['<', '{', '$', ' ']
       },
+      definitionProvider: true,
       workspace: {
         fileOperations: {
           didCreate: {
@@ -113,7 +115,7 @@ connection.onDidChangeConfiguration(change => {
   } else {
     settings = change.settings?.viewi || defaultSettings;
   }
-  
+
   // Update parser settings
   if (viewiParser) {
     viewiParser.setSearchPaths(settings.componentSearchPaths);
@@ -139,10 +141,10 @@ connection.onNotification('workspace/didChangeConfiguration', (params) => {
 function getWordAtPosition(document: TextDocument, position: Position): string {
   const text = document.getText();
   const offset = document.offsetAt(position);
-  
+
   let start = offset;
   let end = offset;
-  
+
   // Find word boundaries
   while (start > 0 && /[a-zA-Z0-9_$]/.test(text[start - 1])) {
     start--;
@@ -150,46 +152,46 @@ function getWordAtPosition(document: TextDocument, position: Position): string {
   while (end < text.length && /[a-zA-Z0-9_]/.test(text[end])) {
     end++;
   }
-  
+
   return text.substring(start, end);
 }
 
 function isInsideTag(document: TextDocument, position: Position): boolean {
   const text = document.getText();
   const offset = document.offsetAt(position);
-  
+
   let lastOpenTag = text.lastIndexOf('<', offset);
   let lastCloseTag = text.lastIndexOf('>', offset);
-  
+
   return lastOpenTag > lastCloseTag;
 }
 
 function isInsideBraces(document: TextDocument, position: Position): { inside: boolean; type: 'single' | 'double' | null } {
   const text = document.getText();
   const offset = document.offsetAt(position);
-  
+
   // Check for double braces first
   let lastDoubleBraceOpen = text.lastIndexOf('{{', offset);
   let lastDoubleBraceClose = text.lastIndexOf('}}', offset);
-  
+
   if (lastDoubleBraceOpen > lastDoubleBraceClose) {
     return { inside: true, type: 'double' };
   }
-  
+
   // Check for single braces
   let lastSingleBraceOpen = text.lastIndexOf('{', offset);
   let lastSingleBraceClose = text.lastIndexOf('}', offset);
-  
+
   // Make sure it's not part of double braces
   if (lastSingleBraceOpen > lastSingleBraceClose) {
     const beforeBrace = text[lastSingleBraceOpen - 1];
     const afterBrace = text[lastSingleBraceOpen + 1];
-    
+
     if (beforeBrace !== '{' && afterBrace !== '{') {
       return { inside: true, type: 'single' };
     }
   }
-  
+
   return { inside: false, type: null };
 }
 
@@ -245,7 +247,7 @@ connection.onCompletion(
     const position = _textDocumentPosition.position;
     const lineText = getLineTextBeforePosition(document, position);
     const wordAtPosition = getWordAtPosition(document, position);
-    
+
     // Only provide completions for HTML files
     if (!document.uri.endsWith('.html')) {
       return [];
@@ -263,11 +265,11 @@ connection.onCompletion(
     function isInsideBracesWithWhitespace(document: TextDocument, position: Position): { inside: boolean; type: 'single' | 'double' | null } {
       const text = document.getText();
       const offset = document.offsetAt(position);
-      
+
       // Check for double braces first - allow whitespace after {{
       let lastDoubleBraceOpen = -1;
       let lastDoubleBraceClose = -1;
-      
+
       for (let i = offset - 1; i >= 1; i--) {
         if (text.substring(i - 1, i + 1) === '{{') {
           lastDoubleBraceOpen = i - 1;
@@ -278,15 +280,15 @@ connection.onCompletion(
           break;
         }
       }
-      
+
       if (lastDoubleBraceOpen > lastDoubleBraceClose) {
         return { inside: true, type: 'double' };
       }
-      
+
       // Check for single braces - allow whitespace after {
       let lastSingleBraceOpen = -1;
       let lastSingleBraceClose = -1;
-      
+
       for (let i = offset - 1; i >= 0; i--) {
         if (text[i] === '{' && (i === 0 || text[i - 1] !== '{') && (i === text.length - 1 || text[i + 1] !== '{')) {
           lastSingleBraceOpen = i;
@@ -297,11 +299,11 @@ connection.onCompletion(
           break;
         }
       }
-      
+
       if (lastSingleBraceOpen > lastSingleBraceClose) {
         return { inside: true, type: 'single' };
       }
-      
+
       return { inside: false, type: null };
     }
 
@@ -361,23 +363,23 @@ connection.onCompletion(
         const paramString = method.parameters
           .map(p => `${p.type} $${p.name}${p.hasDefault ? '?' : ''}`)
           .join(', ');
-        
+
         const paramInsert = method.parameters.filter(p => !p.hasDefault).map((p, index) => `\${${index + 1}:$${p.name}}`).join(', ');
-        
+
         // Add completion for method name without parentheses (for partial typing)
-        completions.push({
-          label: method.name,
-          kind: CompletionItemKind.Function,
-          detail: `${method.returnType} - Component Method`,
-          documentation: {
-            kind: 'markdown',
-            value: `**Returns:** \`${method.returnType}\`\n\n**Parameters:** ${paramString || 'none'}\n\nComponent method from PHP class`
-          },
-          insertText: ` ${method.name}(${paramInsert}) `,
-          insertTextFormat: 2, // Snippet format
-          filterText: method.name
-        });
-        
+        // completions.push({
+        //   label: method.name,
+        //   kind: CompletionItemKind.Function,
+        //   detail: `${method.returnType} - Component Method`,
+        //   documentation: {
+        //     kind: 'markdown',
+        //     value: `**Returns:** \`${method.returnType}\`\n\n**Parameters:** ${paramString || 'none'}\n\nComponent method from PHP class`
+        //   },
+        //   insertText: ` ${method.name}(${paramInsert}) `,
+        //   insertTextFormat: 2, // Snippet format
+        //   filterText: method.name
+        // });
+
         // Also add completion with parentheses for full method signature
         completions.push({
           label: `${method.name}()`,
@@ -412,7 +414,7 @@ connection.onCompletion(
       // Suggest single brace expressions for methods
       for (const method of methods) {
         const paramInsert = method.parameters.filter(p => !p.hasDefault).map((p, index) => `\${${index + 1}:$${p.name}}`).join(', ');
-        
+
         completions.push({
           label: `{${method.name}()}`,
           kind: CompletionItemKind.Snippet,
@@ -455,24 +457,41 @@ connection.onCompletion(
         insertText: `$${property.name}`
       });
     }
-    if(!braceContext.inside) {
-    // Add component suggestions anywhere (not just inside tags) - suggest with opening bracket
-    for (const componentName of components) {
-      completions.push({
-        label: componentName,
-        kind: CompletionItemKind.Class,
-        detail: 'Viewi Component',
-        
-        documentation: {
-          kind: 'markdown',
-          value: `Viewi component \`${componentName}\``
-        },
-        insertText: `<${componentName}>$0</${componentName}>`,
-        insertTextFormat: 2, // Snippet format
-        filterText: componentName
-      });
+    if (!braceContext.inside) {
+      // Add component suggestions anywhere (not just inside tags) - suggest with opening bracket
+      for (const componentName of components) {
+        completions.push({
+          label: componentName,
+          kind: CompletionItemKind.Class,
+          detail: 'Viewi Component',
+
+          documentation: {
+            kind: 'markdown',
+            value: `Viewi component \`${componentName}\``
+          },
+          insertText: `<${componentName}>$0</${componentName}>`,
+          insertTextFormat: 2, // Snippet format
+          filterText: componentName
+        });
+      }
+
+      // build-int virtual tags
+      for (const componentName of ['slot', 'slotContent', 'template']) {
+        completions.push({
+          label: componentName,
+          kind: CompletionItemKind.Class,
+          detail: 'Viewi Control Tag',
+
+          documentation: {
+            kind: 'markdown',
+            value: `Viewi built-in \`${componentName}\``
+          },
+          insertText: `<${componentName}>$0</${componentName}>`,
+          insertTextFormat: 2, // Snippet format
+          filterText: componentName
+        });
+      }
     }
-  }
 
     return completions;
   }
@@ -483,6 +502,73 @@ connection.onCompletion(
 connection.onCompletionResolve(
   (item: CompletionItem): CompletionItem => {
     return item;
+  }
+);
+
+connection.onDefinition(
+  async (params): Promise<any> => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+      return null;
+    }
+    const position = params.position;
+    const word = getWordAtPosition(document, position);
+    if (!word) {
+      return null;
+    }
+    const component = await viewiParser.getComponentForHtmlFile(document.uri);
+    if (!component) {
+      return null;
+    }
+
+
+
+    const memberName = word.startsWith('$') ? word.substring(1) : word;
+    const member =
+      component.properties.find(p => p.name === memberName) ||
+      component.methods.find(m => m.name === memberName);
+
+    if (!member) {
+      // check component tag
+      const tagComponent = viewiParser.getComponent(word);
+      if (tagComponent) {
+        const phpDocument = await TextDocument.create(tagComponent.phpFile, 'php', 1, await fs.promises.readFile(tagComponent.phpFile, 'utf-8'));
+        const regex = new RegExp(`${word}\\b`);
+        const match = regex.exec(phpDocument.getText());
+        if (match) {
+          const startPosition = phpDocument.positionAt(match.index);
+          const endPosition = phpDocument.positionAt(match.index + match[0].length);
+
+          return {
+            uri: tagComponent.phpFile,
+            range: {
+              start: startPosition,
+              end: endPosition
+            }
+          };
+        }
+      }
+
+      return null;
+    }
+
+    const phpDocument = await TextDocument.create(component.phpFile, 'php', 1, await fs.promises.readFile(component.phpFile, 'utf-8'));
+    const regex = new RegExp(`((public|protected|private)\\s+)?(static\\s+)?(function\\s+)?([\\w\\d_]+\\s+)?\\$?${member.name}\\b`);
+    const match = regex.exec(phpDocument.getText());
+
+    if (match) {
+      const startPosition = phpDocument.positionAt(match.index);
+      const endPosition = phpDocument.positionAt(match.index + match[0].length);
+      return {
+        uri: component.phpFile,
+        range: {
+          start: startPosition,
+          end: endPosition
+        }
+      };
+    }
+
+    return null;
   }
 );
 

@@ -65,6 +65,12 @@ class ViewiParser {
             await this.parseComponent(phpFilePath, htmlFilePath);
         }
     }
+    getComponent(componentName) {
+        if (componentName && this.allComponentsCache.has(componentName)) {
+            return this.allComponentsCache.get(componentName) || null;
+        }
+        return null;
+    }
     removeComponentByFile(filePath) {
         const phpFilePath = filePath.endsWith('.php') ? filePath : filePath.replace(/\.html$/, '.php');
         const componentName = this.phpFileToComponent.get(phpFilePath);
@@ -92,7 +98,7 @@ class ViewiParser {
         return Array.from(this.allComponentsCache.values());
     }
     async getComponentForHtmlFile(htmlFilePath) {
-        const phpFilePath = htmlFilePath.replace(/\.html$/, '.php');
+        const phpFilePath = htmlFilePath.replace('file://', '').replace(/\.html$/, '.php');
         const componentName = this.phpFileToComponent.get(phpFilePath);
         if (componentName && this.allComponentsCache.has(componentName)) {
             // Check mtime to see if we need to refresh

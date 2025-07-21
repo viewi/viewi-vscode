@@ -1,6 +1,40 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_1 = require("vscode-languageserver/node");
+const fs = __importStar(require("fs"));
 const vscode_languageserver_textdocument_1 = require("vscode-languageserver-textdocument");
 const vscode_uri_1 = require("vscode-uri");
 const viewi_parser_1 = require("./viewi-parser");
@@ -38,6 +72,7 @@ connection.onInitialize((params) => {
                 resolveProvider: true,
                 triggerCharacters: ['<', '{', '$', ' ']
             },
+            definitionProvider: true,
             workspace: {
                 fileOperations: {
                     didCreate: {
@@ -288,18 +323,18 @@ connection.onCompletion(async (_textDocumentPosition) => {
                 .join(', ');
             const paramInsert = method.parameters.filter(p => !p.hasDefault).map((p, index) => `\${${index + 1}:$${p.name}}`).join(', ');
             // Add completion for method name without parentheses (for partial typing)
-            completions.push({
-                label: method.name,
-                kind: node_1.CompletionItemKind.Function,
-                detail: `${method.returnType} - Component Method`,
-                documentation: {
-                    kind: 'markdown',
-                    value: `**Returns:** \`${method.returnType}\`\n\n**Parameters:** ${paramString || 'none'}\n\nComponent method from PHP class`
-                },
-                insertText: ` ${method.name}(${paramInsert}) `,
-                insertTextFormat: 2, // Snippet format
-                filterText: method.name
-            });
+            // completions.push({
+            //   label: method.name,
+            //   kind: CompletionItemKind.Function,
+            //   detail: `${method.returnType} - Component Method`,
+            //   documentation: {
+            //     kind: 'markdown',
+            //     value: `**Returns:** \`${method.returnType}\`\n\n**Parameters:** ${paramString || 'none'}\n\nComponent method from PHP class`
+            //   },
+            //   insertText: ` ${method.name}(${paramInsert}) `,
+            //   insertTextFormat: 2, // Snippet format
+            //   filterText: method.name
+            // });
             // Also add completion with parentheses for full method signature
             completions.push({
                 label: `${method.name}()`,
@@ -388,6 +423,21 @@ connection.onCompletion(async (_textDocumentPosition) => {
                 filterText: componentName
             });
         }
+        // build-int virtual tags
+        for (const componentName of ['slot', 'slotContent', 'template']) {
+            completions.push({
+                label: componentName,
+                kind: node_1.CompletionItemKind.Class,
+                detail: 'Viewi Control Tag',
+                documentation: {
+                    kind: 'markdown',
+                    value: `Viewi built-in \`${componentName}\``
+                },
+                insertText: `<${componentName}>$0</${componentName}>`,
+                insertTextFormat: 2, // Snippet format
+                filterText: componentName
+            });
+        }
     }
     return completions;
 });
@@ -395,6 +445,60 @@ connection.onCompletion(async (_textDocumentPosition) => {
 // the completion list.
 connection.onCompletionResolve((item) => {
     return item;
+});
+connection.onDefinition(async (params) => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+        return null;
+    }
+    const position = params.position;
+    const word = getWordAtPosition(document, position);
+    if (!word) {
+        return null;
+    }
+    const component = await viewiParser.getComponentForHtmlFile(document.uri);
+    if (!component) {
+        return null;
+    }
+    const memberName = word.startsWith('$') ? word.substring(1) : word;
+    const member = component.properties.find(p => p.name === memberName) ||
+        component.methods.find(m => m.name === memberName);
+    if (!member) {
+        // check component tag
+        const tagComponent = viewiParser.getComponent(word);
+        if (tagComponent) {
+            const phpDocument = await vscode_languageserver_textdocument_1.TextDocument.create(tagComponent.phpFile, 'php', 1, await fs.promises.readFile(tagComponent.phpFile, 'utf-8'));
+            const regex = new RegExp(`${word}\\b`);
+            const match = regex.exec(phpDocument.getText());
+            if (match) {
+                const startPosition = phpDocument.positionAt(match.index);
+                const endPosition = phpDocument.positionAt(match.index + match[0].length);
+                return {
+                    uri: tagComponent.phpFile,
+                    range: {
+                        start: startPosition,
+                        end: endPosition
+                    }
+                };
+            }
+        }
+        return null;
+    }
+    const phpDocument = await vscode_languageserver_textdocument_1.TextDocument.create(component.phpFile, 'php', 1, await fs.promises.readFile(component.phpFile, 'utf-8'));
+    const regex = new RegExp(`((public|protected|private)\\s+)?(static\\s+)?(function\\s+)?([\\w\\d_]+\\s+)?\\$?${member.name}\\b`);
+    const match = regex.exec(phpDocument.getText());
+    if (match) {
+        const startPosition = phpDocument.positionAt(match.index);
+        const endPosition = phpDocument.positionAt(match.index + match[0].length);
+        return {
+            uri: component.phpFile,
+            range: {
+                start: startPosition,
+                end: endPosition
+            }
+        };
+    }
+    return null;
 });
 // Make the text document manager listen on the connection
 // for open, change and close text document events

@@ -66,6 +66,13 @@ export class ViewiParser {
     }
   }
 
+  public getComponent(componentName: string): ViewiComponent | null {
+    if (componentName && this.allComponentsCache.has(componentName)) {
+      return this.allComponentsCache.get(componentName) || null;
+    }
+    return null;
+  }
+
   public removeComponentByFile(filePath: string): void {
     const phpFilePath = filePath.endsWith('.php') ? filePath : filePath.replace(/\.html$/, '.php');
     const componentName = this.phpFileToComponent.get(phpFilePath);
@@ -96,9 +103,8 @@ export class ViewiParser {
   }
 
   public async getComponentForHtmlFile(htmlFilePath: string): Promise<ViewiComponent | null> {
-    const phpFilePath = htmlFilePath.replace(/\.html$/, '.php');
+    const phpFilePath = htmlFilePath.replace('file://', '').replace(/\.html$/, '.php');
     const componentName = this.phpFileToComponent.get(phpFilePath);
-
     if (componentName && this.allComponentsCache.has(componentName)) {
       // Check mtime to see if we need to refresh
       const phpStat = await fs.promises.stat(phpFilePath);
@@ -106,7 +112,7 @@ export class ViewiParser {
         return this.allComponentsCache.get(componentName)!;
       }
     }
-    
+
     // If not in cache or outdated, parse it
     if (fs.existsSync(phpFilePath)) {
       return this.parseComponent(phpFilePath, htmlFilePath.replace(/\.php$/, '.html'));
@@ -128,7 +134,7 @@ export class ViewiParser {
     const phpFile = filePath.replace(/\.html$/, '.php');
     const component = await this.getComponentForHtmlFile(filePath);
     console.log([filePath, component, component?.methods, component?.properties]);
-    
+
     if (!component) {
       return { properties: [], methods: [] };
     }
@@ -142,15 +148,15 @@ export class ViewiParser {
   private async scanDirectory(dirPath: string): Promise<void> {
     try {
       const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         const fullPath = path.join(dirPath, entry.name);
-        
+
         if (entry.isDirectory()) {
           await this.scanDirectory(fullPath);
         } else if (entry.isFile() && entry.name.endsWith('.php')) {
           const htmlFile = fullPath.replace(/\.php$/, '.html');
-      console.log([entry, fullPath]);
+          console.log([entry, fullPath]);
           if (fs.existsSync(htmlFile)) {
             await this.parseComponent(fullPath, htmlFile);
           }
@@ -165,7 +171,7 @@ export class ViewiParser {
     try {
       const phpStat = await fs.promises.stat(phpFile);
       const htmlStat = await fs.promises.stat(htmlFile);
-      
+
       const lastPhpMtime = this.fileMtimes.get(phpFile);
       const lastHtmlMtime = this.fileMtimes.get(htmlFile);
 
@@ -181,7 +187,7 @@ export class ViewiParser {
 
       const content = await fs.promises.readFile(phpFile, 'utf-8');
       const className = this.extractClassName(content);
-      
+
       if (!className) {
         return null;
       }
@@ -216,10 +222,10 @@ export class ViewiParser {
 
   private extractProperties(content: string): ViewiProperty[] {
     const properties: ViewiProperty[] = [];
-    
+
     // Match property declarations: visibility [static] [type] $name
     const propertyRegex = /(public|private|protected)\s+(static\s+)?(?:([A-Za-z_][A-Za-z0-9_]*|\||\[\]|\?)*\s+)?\$([A-Za-z_][A-Za-z0-9_]*)/g;
-    
+
     let match;
     while ((match = propertyRegex.exec(content)) !== null) {
       const visibility = match[1] as 'public' | 'private' | 'protected';
@@ -240,11 +246,11 @@ export class ViewiParser {
 
   private extractMethods(content: string): ViewiMethod[] {
     const methods: ViewiMethod[] = [];
-    
+
     // Match method declarations: [visibility] [static] function name(params): returnType
     // If no visibility is specified, default to public
     const methodRegex = /(?:(public|private|protected)\s+)?(static\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)(?:\s*:\s*([^{]+))?/g;
-    
+
     let match;
     while ((match = methodRegex.exec(content)) !== null) {
       const visibility = (match[1] as 'public' | 'private' | 'protected') || 'public'; // Default to public if not specified
@@ -281,7 +287,7 @@ export class ViewiParser {
 
       // Match: [type] $name [= default]
       const paramMatch = trimmed.match(/(?:([A-Za-z_][A-Za-z0-9_]*|\||\[\]|\?)*\s+)?\$([A-Za-z_][A-Za-z0-9_]*)(?:\s*=\s*(.+))?/);
-      
+
       if (paramMatch) {
         const type = paramMatch[1] ? paramMatch[1].trim() : 'mixed';
         const name = paramMatch[2];
