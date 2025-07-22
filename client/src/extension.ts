@@ -27,7 +27,8 @@ export function activate(context: ExtensionContext) {
   // Options to control the language client
   const clientOptions: LanguageClientOptions = {
     // Register the server for HTML and PHP documents
-    documentSelector: [
+    documentSelector: [      
+      { scheme: 'file', language: 'viewi' },
       { scheme: 'file', language: 'html' },
       { scheme: 'file', language: 'php' }
     ],

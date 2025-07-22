@@ -121,7 +121,7 @@ class ViewiParser {
         const filePath = vscode_uri_1.URI.parse(documentUri).fsPath;
         const phpFile = filePath.replace(/\.html$/, '.php');
         const component = await this.getComponentForHtmlFile(filePath);
-        console.log([filePath, component, component?.methods, component?.properties]);
+        // console.log([filePath, component, component?.methods, component?.properties]);
         if (!component) {
             return { properties: [], methods: [] };
         }
@@ -140,7 +140,7 @@ class ViewiParser {
                 }
                 else if (entry.isFile() && entry.name.endsWith('.php')) {
                     const htmlFile = fullPath.replace(/\.php$/, '.html');
-                    console.log([entry, fullPath]);
+                    // console.log([entry, fullPath]);
                     if (fs.existsSync(htmlFile)) {
                         await this.parseComponent(fullPath, htmlFile);
                     }

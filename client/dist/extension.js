@@ -56,6 +56,7 @@ function activate(context) {
     const clientOptions = {
         // Register the server for HTML and PHP documents
         documentSelector: [
+            { scheme: 'file', language: 'viewi' },
             { scheme: 'file', language: 'html' },
             { scheme: 'file', language: 'php' }
         ],

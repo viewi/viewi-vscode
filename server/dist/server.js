@@ -90,7 +90,14 @@ connection.onInitialize((params) => {
             supported: true
         };
     }
+    connection.console.log(`Initialized with language mode for HTML: text.html.viewi`);
     return result;
+});
+connection.onDidOpenTextDocument(params => {
+    console.log(['onDidOpenTextDocument', params.textDocument.uri, params.textDocument.languageId]);
+    if (params.textDocument.uri.endsWith('.html')) {
+        connection.console.log(`Opened document: ${params.textDocument.uri}, languageId: ${params.textDocument.languageId}`);
+    }
 });
 connection.onInitialized(() => {
     if (hasConfigurationCapability) {
@@ -121,7 +128,7 @@ connection.onDidChangeConfiguration(change => {
 // Custom notification handlers
 connection.onNotification('viewi/refreshComponents', () => {
     if (viewiParser) {
-        viewiParser.clearCache();
+        // viewiParser.clearCache();
     }
 });
 connection.onNotification('workspace/didChangeConfiguration', (params) => {
@@ -313,7 +320,7 @@ connection.onCompletion(async (_textDocumentPosition) => {
                     kind: 'markdown',
                     value: `**Type:** \`${property.type}\`\n\nComponent property from PHP class`
                 },
-                insertText: ` $${property.name} `
+                insertText: `$${property.name}`
             });
         }
         // Add method completions as functions
@@ -344,7 +351,7 @@ connection.onCompletion(async (_textDocumentPosition) => {
                     kind: 'markdown',
                     value: `**Returns:** \`${method.returnType}\`\n\n**Parameters:** ${paramString || 'none'}\n\nComponent method from PHP class`
                 },
-                insertText: ` ${method.name}(${paramInsert}) `,
+                insertText: `${method.name}(${paramInsert})`,
                 insertTextFormat: 2 // Snippet format
             });
         }

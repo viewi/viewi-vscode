@@ -2,7 +2,7 @@
   "name": "viewi-components",
   "displayName": "Viewi Components",
   "description": "VSCode support for Viewi PHP/HTML components with syntax highlighting and autocomplete",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "viewi",
   "engines": {
     "vscode": "^1.80.0"
@@ -23,12 +23,19 @@
     "onLanguage:html",
     "onLanguage:php"
   ],
+  "extensionDependencies": [
+    "bmewburn.vscode-intelephense-client"
+  ],
   "main": "./client/dist/extension.js",
   "contributes": {
     "grammars": [
       {
-        "scopeName": "text.html.viewi",
+        "language": "html",
+        "scopeName": "text.html.php",
         "path": "./syntaxes/viewi-html.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.php": "php"
+        },
         "injectTo": [
           "text.html.basic"
         ]
@@ -48,7 +55,9 @@
           "items": {
             "type": "string"
           },
-          "default": ["src", "components"],
+          "default": [
+            "."
+          ],
           "description": "Paths to search for Viewi components"
         }
       }

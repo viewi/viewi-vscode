@@ -133,7 +133,7 @@ export class ViewiParser {
     const filePath = URI.parse(documentUri).fsPath;
     const phpFile = filePath.replace(/\.html$/, '.php');
     const component = await this.getComponentForHtmlFile(filePath);
-    console.log([filePath, component, component?.methods, component?.properties]);
+    // console.log([filePath, component, component?.methods, component?.properties]);
 
     if (!component) {
       return { properties: [], methods: [] };
@@ -156,7 +156,7 @@ export class ViewiParser {
           await this.scanDirectory(fullPath);
         } else if (entry.isFile() && entry.name.endsWith('.php')) {
           const htmlFile = fullPath.replace(/\.php$/, '.html');
-          console.log([entry, fullPath]);
+          // console.log([entry, fullPath]);
           if (fs.existsSync(htmlFile)) {
             await this.parseComponent(fullPath, htmlFile);
           }
@@ -202,7 +202,6 @@ export class ViewiParser {
         properties,
         methods
       };
-
       this.allComponentsCache.set(className, component);
       this.phpFileToComponent.set(phpFile, className);
       this.fileMtimes.set(phpFile, phpStat.mtimeMs);
