@@ -23,15 +23,15 @@
     "onLanguage:html",
     "onLanguage:php"
   ],
-  "extensionDependencies": [
-    "bmewburn.vscode-intelephense-client"
-  ],
   "main": "./client/dist/extension.js",
   "contributes": {
     "grammars": [
       {
         "language": "html",
-        "scopeName": "text.html.php",
+        "scopeName": "text.html.viewi",
+        "fileTypes": [
+          "html"
+        ],
         "path": "./syntaxes/viewi-html.tmLanguage.json",
         "embeddedLanguages": {
           "meta.embedded.php": "php"

@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Viewi HTML",
-  "scopeName": "text.html.php",
+  "scopeName": "text.html.viewi",
   "fileTypes": [
     "html"
   ],
@@ -16,12 +16,6 @@
       "include": "#viewi-single-braces"
     },
     {
-      "include": "#viewi-components"
-    },
-    {
-      "include": "#php-expression"
-    },
-    {
       "include": "text.html.basic"
     }
   ],
@@ -32,7 +26,7 @@
     },
     "viewi-double-braces": {
       "name": "meta.embedded.php",
-      "begin": "{{",
+      "begin": "(?<!\\$){{",
       "end": "}}",
       "beginCaptures": {
         "0": {
@@ -55,7 +49,7 @@
     },
     "viewi-single-braces": {
       "name": "meta.embedded.php",
-      "begin": "{(?!{)",
+      "begin": "(?<!\\$){(?!{)",
       "end": "}(?!})",
       "beginCaptures": {
         "0": {
@@ -78,7 +72,7 @@
     },
     "viewi-components": {
       "name": "meta.tag.viewi-component",
-      "begin": "(<)([A-Z][a-zA-Z0-9]*)",
+      "begin": "(<)([a-zA-Z0-9]*)",
       "end": "(/>|>)",
       "beginCaptures": {
         "1": {
