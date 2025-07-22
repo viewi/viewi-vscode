@@ -38,6 +38,8 @@ const defaultSettings: ViewiSettings = {
   componentSearchPaths: ['.']
 };
 
+const builtInControlTags = ['slot', 'slotContent', 'template'];
+
 let viewiParser: ViewiParser;
 let settings: ViewiSettings = defaultSettings;
 
@@ -315,6 +317,51 @@ connection.onCompletion(
       return { inside: false, type: null };
     }
 
+
+    // Check if we're inside braces (for PHP expressions) - with whitespace support
+    const braceContext = isInsideBracesWithWhitespace(document, position);
+    const hasCursorDollar =
+      // Check if user is typing a variable (starts with $)
+      charBeforeCursor === '$' || (wordAtPosition.startsWith('$') && wordAtPosition.length > 1);
+
+    // Add property completions as variables
+    for (const property of properties) {
+      completions.push({
+        label: `$${property.name}`,
+        kind: CompletionItemKind.Variable,
+        detail: `${property.type} - Component Property`,
+        documentation: {
+          kind: 'markdown',
+          value: `**Type:** \`${property.type}\`\n\nComponent property from PHP class`
+        },
+        // if $ - Just insert the name part since $ is already typed
+        insertText: hasCursorDollar ? property.name : `$${property.name}`,
+        // filterText: `$${property.name}`
+      });
+    }
+
+    // Add method completions as functions
+    for (const method of methods) {
+      const paramString = method.parameters
+        .map(p => `${p.type} $${p.name}${p.hasDefault ? '?' : ''}`)
+        .join(', ');
+
+      const paramInsert = method.parameters.filter(p => !p.hasDefault).map((p, index) => `\${${index + 1}:$${p.name}}`).join(', ');
+
+      // Also add completion with parentheses for full method signature
+      completions.push({
+        label: `${method.name}()`,
+        kind: CompletionItemKind.Function,
+        detail: `${method.returnType} - Component Method`,
+        documentation: {
+          kind: 'markdown',
+          value: `**Returns:** \`${method.returnType}\`\n\n**Parameters:** ${paramString || 'none'}\n\nComponent method from PHP class`
+        },
+        insertText: braceContext.inside ? `${method.name}(${paramInsert})` : `{ ${method.name}(${paramInsert}) }`,
+        insertTextFormat: 2 // Snippet format
+      });
+    }
+
     // Check if we're inside a tag (for component suggestions)
     if (isInsideTag(document, position)) {
       for (const componentName of components) {
@@ -329,144 +376,22 @@ connection.onCompletion(
           insertText: componentName
         });
       }
-    }
 
-    // Check if user is typing a variable (starts with $)
-    if (charBeforeCursor === '$' || (wordAtPosition.startsWith('$') && wordAtPosition.length > 1)) {
-      // Add property completions as variables
-      for (const property of properties) {
+      // build-int virtual tags
+      for (const componentName of builtInControlTags) {
         completions.push({
-          label: `$${property.name}`,
-          kind: CompletionItemKind.Variable,
-          detail: `${property.type} - Component Property`,
+          label: componentName,
+          kind: CompletionItemKind.Class,
+          detail: 'Viewi Control Tag',
+
           documentation: {
             kind: 'markdown',
-            value: `**Type:** \`${property.type}\`\n\nComponent property from PHP class`
+            value: `Viewi built-in \`${componentName}\``
           },
-          insertText: property.name, // Just insert the name part since $ is already typed
-          filterText: `$${property.name}`
+          insertText: componentName,
         });
       }
-    }
-
-    // Check if we're inside braces (for PHP expressions) - with whitespace support
-    const braceContext = isInsideBracesWithWhitespace(document, position);
-    if (braceContext.inside) {
-      // Add property completions as variables
-      for (const property of properties) {
-        completions.push({
-          label: `$${property.name}`,
-          kind: CompletionItemKind.Variable,
-          detail: `${property.type} - Component Property`,
-          documentation: {
-            kind: 'markdown',
-            value: `**Type:** \`${property.type}\`\n\nComponent property from PHP class`
-          },
-          insertText: `$${property.name}`
-        });
-      }
-
-      // Add method completions as functions
-      for (const method of methods) {
-        const paramString = method.parameters
-          .map(p => `${p.type} $${p.name}${p.hasDefault ? '?' : ''}`)
-          .join(', ');
-
-        const paramInsert = method.parameters.filter(p => !p.hasDefault).map((p, index) => `\${${index + 1}:$${p.name}}`).join(', ');
-
-        // Add completion for method name without parentheses (for partial typing)
-        // completions.push({
-        //   label: method.name,
-        //   kind: CompletionItemKind.Function,
-        //   detail: `${method.returnType} - Component Method`,
-        //   documentation: {
-        //     kind: 'markdown',
-        //     value: `**Returns:** \`${method.returnType}\`\n\n**Parameters:** ${paramString || 'none'}\n\nComponent method from PHP class`
-        //   },
-        //   insertText: ` ${method.name}(${paramInsert}) `,
-        //   insertTextFormat: 2, // Snippet format
-        //   filterText: method.name
-        // });
-
-        // Also add completion with parentheses for full method signature
-        completions.push({
-          label: `${method.name}()`,
-          kind: CompletionItemKind.Function,
-          detail: `${method.returnType} - Component Method`,
-          documentation: {
-            kind: 'markdown',
-            value: `**Returns:** \`${method.returnType}\`\n\n**Parameters:** ${paramString || 'none'}\n\nComponent method from PHP class`
-          },
-          insertText: `${method.name}(${paramInsert})`,
-          insertTextFormat: 2 // Snippet format
-        });
-      }
-    }
-
-    // Check if user just typed '{' to suggest expression templates
-    if (lineText.endsWith('{') && !lineText.endsWith('{{')) {
-      // Suggest single brace expressions for properties
-      for (const property of properties) {
-        completions.push({
-          label: `{$${property.name}}`,
-          kind: CompletionItemKind.Snippet,
-          detail: 'Single Brace Expression',
-          documentation: {
-            kind: 'markdown',
-            value: `Insert \`$${property.name}\` as a single-brace expression`
-          },
-          insertText: ` $${property.name} }`
-        });
-      }
-
-      // Suggest single brace expressions for methods
-      for (const method of methods) {
-        const paramInsert = method.parameters.filter(p => !p.hasDefault).map((p, index) => `\${${index + 1}:$${p.name}}`).join(', ');
-
-        completions.push({
-          label: `{${method.name}()}`,
-          kind: CompletionItemKind.Snippet,
-          detail: 'Single Brace Method Call',
-          documentation: {
-            kind: 'markdown',
-            value: `Call \`${method.name}()\` as a single-brace expression`
-          },
-          insertText: ` ${method.name}(${paramInsert}) }`,
-          insertTextFormat: 2 // Snippet format
-        });
-      }
-
-      // Suggest double brace expressions for properties
-      for (const property of properties) {
-        completions.push({
-          label: `{{$${property.name}}}`,
-          kind: CompletionItemKind.Snippet,
-          detail: 'Double Brace Expression',
-          documentation: {
-            kind: 'markdown',
-            value: `Insert \`$${property.name}\` as a double-brace expression`
-          },
-          insertText: `{ $${property.name} }}`
-        });
-      }
-    }
-
-    // Always provide variable and component suggestions anywhere in HTML
-    // Add property completions as variables for general use
-    for (const property of properties) {
-      completions.push({
-        label: `$${property.name}`,
-        kind: CompletionItemKind.Variable,
-        detail: `${property.type} - Component Property`,
-        documentation: {
-          kind: 'markdown',
-          value: `**Type:** \`${property.type}\`\n\nComponent property from PHP class`
-        },
-        insertText: `$${property.name}`
-      });
-    }
-    if (!braceContext.inside) {
-      // Add component suggestions anywhere (not just inside tags) - suggest with opening bracket
+    } else if (!braceContext.inside) {
       for (const componentName of components) {
         completions.push({
           label: componentName,
@@ -484,7 +409,7 @@ connection.onCompletion(
       }
 
       // build-int virtual tags
-      for (const componentName of ['slot', 'slotContent', 'template']) {
+      for (const componentName of builtInControlTags) {
         completions.push({
           label: componentName,
           kind: CompletionItemKind.Class,
