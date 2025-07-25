@@ -70,8 +70,7 @@ class HomePage extends BaseComponent
 ### Usage in Other Templates
 ```html
 <div>
-    <MyButton text="Save" />
-    <MyButton text="Cancel" disabled="true" />
+    <HomePage title="My new title" />
 </div>
 ```
 
@@ -89,7 +88,7 @@ The extension can be configured through VSCode settings:
 ### Settings
 
 - **`viewi.enableAutocompletion`** (boolean, default: `true`): Enable/disable autocompletion features
-- **`viewi.componentSearchPaths`** (array, default: `["src", "components"]`): Directories to search for Viewi components
+- **`viewi.componentSearchPaths`** (array, default: `["."]`): Directories to search for Viewi components
 
 ## Commands
 
@@ -104,14 +103,16 @@ Autocompletion is triggered by:
 - `<` - For component tag suggestions
 - `{` - For PHP expression suggestions  
 - `$` - For variable suggestions anywhere in HTML files
+- CTRL + (SPACE)
 
 ### Autocompletion Scenarios
 
-1. **Component Tags**: Type `<My` → suggests `MyButton`, `HomePage`, etc.
+1. **Component Tags**: Type `<My` → suggests `MyButton`, etc.
 2. **Variables anywhere**: Type `$` → suggests `$title`, `$isLoading`, etc.
 3. **Variables in braces**: Type `{$` → suggests `$title`, `$isLoading`, etc.
 4. **Methods in braces**: Type `{get` → suggests `getName()`, `getTitle()`, etc.
 5. **Expression templates**: Type `{` → suggests `{$title}`, `{{$title}}`, `{getName()}`, etc.
+6. **CTRL + (SPACE)**: All above
 
 ## Installation
 

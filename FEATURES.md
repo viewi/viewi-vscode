@@ -70,10 +70,6 @@ viewi-vscode/
 │   └── tsconfig.json              # TypeScript config
 ├── syntaxes/                       # Syntax highlighting
 │   └── viewi-html.tmLanguage.json # TextMate grammar
-└── examples/                       # Example components
-    ├── MyButton.php/.html         # Button component example
-    ├── UserCard.php/.html         # User card component example
-    └── App.html                   # Usage examples
 ```
 
 ## 🚀 Usage Examples
@@ -92,7 +88,7 @@ class MyButton {
 
 ```html
 <!-- MyButton.html -->
-<button disabled="{$disabled}" onclick="{onClick()}">
+<button disabled="{$disabled}" onclick="onClick()">
     {$text}
 </button>
 ```
@@ -108,10 +104,12 @@ class MyButton {
 
 ### Autocompletion Scenarios
 
-1. **Component Tags**: Type `<My` → suggests `MyButton`, `MyCard`, etc.
-2. **Properties**: Type `{$` → suggests `$text`, `$disabled`, etc.
-3. **Methods**: Type `{get` → suggests `getText()`, `getStatus()`, etc.
-4. **Expression Templates**: Type `{` → suggests `{$text}`, `{{$text}}`, etc.
+1. **Component Tags**: Type `<My` → suggests `MyButton`, etc.
+2. **Variables anywhere**: Type `$` → suggests `$title`, `$isLoading`, etc.
+3. **Variables in braces**: Type `{$` → suggests `$title`, `$isLoading`, etc.
+4. **Methods in braces**: Type `{get` → suggests `getName()`, `getTitle()`, etc.
+5. **Expression templates**: Type `{` → suggests `{$title}`, `{{$title}}`, `{getName()}`, etc.
+6. **CTRL + (SPACE)**: All above
 
 ## 🔧 Installation & Setup
 
