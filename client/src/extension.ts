@@ -10,9 +10,10 @@ import {
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
+  console.log('Viewi Extension is activating');
   // The server is implemented in node
   const serverModule = context.asAbsolutePath(path.join('server', 'dist', 'server.js'));
-  
+
   // If the extension is launched in debug mode then the debug server options are used
   // Otherwise the run options are used
   const serverOptions: ServerOptions = {
@@ -27,7 +28,7 @@ export function activate(context: ExtensionContext) {
   // Options to control the language client
   const clientOptions: LanguageClientOptions = {
     // Register the server for HTML and PHP documents
-    documentSelector: [      
+    documentSelector: [
       { scheme: 'file', language: 'viewi' },
       { scheme: 'file', language: 'html' },
       { scheme: 'file', language: 'php' }
@@ -81,19 +82,19 @@ function registerAdditionalFeatures(context: ExtensionContext) {
 
   // Watch for file changes to refresh component cache
   const fileWatcher = workspace.createFileSystemWatcher('**/*.{php,html}');
-  
+
   fileWatcher.onDidCreate(() => {
     if (client) {
       client.sendNotification('viewi/refreshComponents');
     }
   });
-  
+
   fileWatcher.onDidDelete(() => {
     if (client) {
       client.sendNotification('viewi/refreshComponents');
     }
   });
-  
+
   fileWatcher.onDidChange(() => {
     if (client) {
       client.sendNotification('viewi/refreshComponents');

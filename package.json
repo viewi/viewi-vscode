@@ -2,8 +2,9 @@
   "name": "viewi-components",
   "displayName": "Viewi Components",
   "description": "VSCode support for Viewi PHP/HTML components with syntax highlighting and autocomplete",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "publisher": "viewi",
+  "repository": "https://github.com/viewi/viewi-vscode.git",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -72,7 +73,8 @@
   "devDependencies": {
     "@types/node": "^18.0.0",
     "@types/vscode": "^1.80.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "@vscode/vsce": "^3.6.0"
   },
   "dependencies": {
     "vscode-languageclient": "^8.1.0"

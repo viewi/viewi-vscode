@@ -40,6 +40,7 @@ const vscode_1 = require("vscode");
 const node_1 = require("vscode-languageclient/node");
 let client;
 function activate(context) {
+    console.log('Viewi Extension is activating');
     // The server is implemented in node
     const serverModule = context.asAbsolutePath(path.join('server', 'dist', 'server.js'));
     // If the extension is launched in debug mode then the debug server options are used

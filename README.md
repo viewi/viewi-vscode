@@ -128,6 +128,15 @@ npm install
 npm run compile
 ```
 
+## Publish
+
+```
+npm install -g @vscode/vsce
+node_modules/.bin/vsce package
+-- OR
+vsce package
+```
+
 ### Project Structure
 ```
 ├── client/                 # VSCode extension client
