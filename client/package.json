@@ -3,11 +3,12 @@
   "description": "VSCode client for Viewi Components language server",
   "version": "1.0.0",
   "dependencies": {
+    "vscode": "^1.1.37",
     "vscode-languageclient": "^8.1.0"
   },
   "devDependencies": {
-    "@types/vscode": "^1.80.0",
     "@types/node": "^18.0.0",
+    "@types/vscode": "^1.80.0",
     "typescript": "^5.0.0"
   },
   "engines": {

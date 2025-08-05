@@ -2,7 +2,8 @@
   "name": "viewi-components",
   "displayName": "Viewi Components",
   "description": "VSCode support for Viewi PHP/HTML components with syntax highlighting and autocomplete",
-  "version": "1.0.3",
+  "version": "1.0.4",
+  "icon": "viewi-logo-128.png",
   "publisher": "viewi",
   "repository": "https://github.com/viewi/viewi-vscode.git",
   "engines": {
@@ -65,16 +66,18 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./client && tsc -p ./server",
+    "vscode:prepublish": "npm run esbuild",
+    "compile-ts": "tsc -p ./client && tsc -p ./server",
+    "esbuild": "esbuild ./server/src/server.ts --platform=node --bundle --outfile=./server/dist/server.js && esbuild ./client/src/extension.ts --external:vscode --platform=node --bundle --outfile=./client/dist/extension.js",
     "watch": "tsc -b -w",
     "postinstall": "cd client && npm install && cd ../server && npm install && cd .."
   },
   "devDependencies": {
     "@types/node": "^18.0.0",
     "@types/vscode": "^1.80.0",
-    "typescript": "^5.0.0",
-    "@vscode/vsce": "^3.6.0"
+    "@vscode/vsce": "^3.6.0",
+    "esbuild": "0.25.8",
+    "typescript": "^5.0.0"
   },
   "dependencies": {
     "vscode-languageclient": "^8.1.0"

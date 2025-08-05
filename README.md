@@ -137,6 +137,12 @@ node_modules/.bin/vsce package
 vsce package
 ```
 
+```
+vsce publish
+-- OR
+node_modules/.bin/vsce publish
+```
+
 ### Project Structure
 ```
 ├── client/                 # VSCode extension client

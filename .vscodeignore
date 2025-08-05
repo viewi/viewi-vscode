@@ -10,3 +10,4 @@ vsc-extension-quickstart.md
 **/*.ts
 old-copilot/**
 examples/**
+**/node_modules
