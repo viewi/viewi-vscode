@@ -10,13 +10,13 @@ import {
   TextDocumentSyncKind,
   InitializeResult,
   Position,
-  Range
 } from 'vscode-languageserver/node';
 import * as fs from 'fs';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
-import { ViewiParser, ViewiProperty, ViewiMethod } from './viewi-parser';
+import { ViewiParser } from './viewi-parser';
+import { isInsideCodeRegion } from './isInsideCodeRegion';
 
 // Create a connection for the server, using Node's IPC as a transport.
 const connection = createConnection(ProposedFeatures.all);
@@ -271,73 +271,56 @@ connection.onCompletion(
     const offset = document.offsetAt(position);
     const charBeforeCursor = offset > 0 ? text[offset - 1] : '';
 
-    // Helper function to check if we're inside braces with whitespace support
-    function isInsideBracesWithWhitespace(document: TextDocument, position: Position): { inside: boolean; type: 'single' | 'double' | null } {
-      const text = document.getText();
-      const offset = document.offsetAt(position);
-
-      // Check for double braces first - allow whitespace after {{
-      let lastDoubleBraceOpen = -1;
-      let lastDoubleBraceClose = -1;
-
-      for (let i = offset - 1; i >= 1; i--) {
-        if (text.substring(i - 1, i + 1) === '{{') {
-          lastDoubleBraceOpen = i - 1;
-          break;
-        }
-        if (text.substring(i - 1, i + 1) === '}}') {
-          lastDoubleBraceClose = i - 1;
-          break;
-        }
-      }
-
-      if (lastDoubleBraceOpen > lastDoubleBraceClose) {
-        return { inside: true, type: 'double' };
-      }
-
-      // Check for single braces - allow whitespace after {
-      let lastSingleBraceOpen = -1;
-      let lastSingleBraceClose = -1;
-
-      for (let i = offset - 1; i >= 0; i--) {
-        if (text[i] === '{' && (i === 0 || text[i - 1] !== '{') && (i === text.length - 1 || text[i + 1] !== '{')) {
-          lastSingleBraceOpen = i;
-          break;
-        }
-        if (text[i] === '}' && (i === 0 || text[i - 1] !== '}') && (i === text.length - 1 || text[i + 1] !== '}')) {
-          lastSingleBraceClose = i;
-          break;
-        }
-      }
-
-      if (lastSingleBraceOpen > lastSingleBraceClose) {
-        return { inside: true, type: 'single' };
-      }
-
-      return { inside: false, type: null };
-    }
-
-
     // Check if we're inside braces (for PHP expressions) - with whitespace support
-    const braceContext = isInsideBracesWithWhitespace(document, position);
+    const braceContext = isInsideCodeRegion(document, position);
+    const insideEvent = braceContext.type === 'event';
+    console.log(['braceContext', braceContext]);
     const hasCursorDollar =
       // Check if user is typing a variable (starts with $)
       charBeforeCursor === '$' || (wordAtPosition.startsWith('$') && wordAtPosition.length > 1);
 
-    // Add property completions as variables
-    for (const property of properties) {
-      completions.push({
-        label: `$${property.name}`,
-        kind: CompletionItemKind.Variable,
-        detail: `${property.type} - Component Property`,
-        documentation: {
-          kind: 'markdown',
-          value: `**Type:** \`${property.type}\`\n\nComponent property from PHP class`
-        },
-        // if $ - Just insert the name part since $ is already typed
-        insertText: hasCursorDollar ? property.name : `$${property.name}`,
-        // filterText: `$${property.name}`
-      });
+    if (!insideEvent) {
+      // Add property completions as variables
+      for (const property of properties) {
+        completions.push({
+          label: `$${property.name}`,
+          kind: CompletionItemKind.Variable,
+          detail: `${property.type} - Component Property`,
+          documentation: {
+            kind: 'markdown',
+            value: `**Type:** \`${property.type}\`\n\nComponent property from PHP class`
+          },
+          // if $ - Just insert the name part since $ is already typed
+          insertText: hasCursorDollar ? property.name : `$${property.name}`,
+          // filterText: `$${property.name}`
+        });
+      }
+    }
+
+    // component props
+    if (braceContext.insideTag && braceContext.tagName) {
+      const propsTargetComponent = viewiParser.getComponent(braceContext.tagName);
+      if (propsTargetComponent) {
+
+        // TODO: suggest events
+        const props = propsTargetComponent.properties.filter(p => p.visibility === 'public');
+        for (const property of props) {
+          completions.push({
+            label: `${property.name}`,
+            kind: CompletionItemKind.Variable,
+            detail: `${property.type} - Component Prop`,
+            documentation: {
+              kind: 'markdown',
+              value: `**Type:** \`${property.type}\`\n\nComponent property from PHP class`
+            },
+            // if $ - Just insert the name part since $ is already typed
+            insertText: `${property.name}="$0"`,
+            insertTextFormat: 2, // Snippet format
+            sortText: `#${property.name}`
+            // filterText: `$${property.name}`
+          });
+        }
+      }
     }
 
     // Add method completions as functions
@@ -348,84 +331,114 @@ connection.onCompletion(
 
       const paramInsert = method.parameters.filter(p => !p.hasDefault).map((p, index) => `\${${index + 1}:$${p.name}}`).join(', ');
 
-      // Also add completion with parentheses for full method signature
-      completions.push({
-        label: `${method.name}()`,
-        kind: CompletionItemKind.Function,
-        detail: `${method.returnType} - Component Method`,
-        documentation: {
-          kind: 'markdown',
-          value: `**Returns:** \`${method.returnType}\`\n\n**Parameters:** ${paramString || 'none'}\n\nComponent method from PHP class`
-        },
-        insertText: braceContext.inside ? `${method.name}(${paramInsert})` : `{ ${method.name}(${paramInsert}) }`,
-        insertTextFormat: 2 // Snippet format
-      });
-    }
-
-    // Check if we're inside a tag (for component suggestions)
-    if (isInsideTag(document, position)) {
-      for (const componentName of components) {
+      if (insideEvent) {
+        // Also add completion with parentheses for full method signature
         completions.push({
-          label: componentName,
-          kind: CompletionItemKind.Class,
-          detail: 'Viewi Component',
+          label: `${method.name}($event)`,
+          kind: CompletionItemKind.Function,
+          detail: `${method.returnType} - Component Method`,
           documentation: {
             kind: 'markdown',
-            value: `Viewi component \`${componentName}\``
+            value: `**Returns:** \`${method.returnType}\`\n\n**Parameters:** ${paramString || 'none'}\n\nComponent method from PHP class`
           },
-          insertText: componentName
+          insertText: `${method.name}($event)`,
+          insertTextFormat: 1,
+          sortText: `0${method.name}`
         });
-      }
-
-      // build-int virtual tags
-      for (const componentName of builtInControlTags) {
         completions.push({
-          label: componentName,
-          kind: CompletionItemKind.Class,
-          detail: 'Viewi Control Tag',
-
+          label: `${method.name}`,
+          kind: CompletionItemKind.Function,
+          detail: `${method.returnType} - Component Method`,
           documentation: {
             kind: 'markdown',
-            value: `Viewi built-in \`${componentName}\``
+            value: `**Returns:** \`${method.returnType}\`\n\n**Parameters:** ${paramString || 'none'}\n\nComponent method from PHP class`
           },
-          insertText: componentName,
+          insertText: `${method.name}`,
+          insertTextFormat: 1,
+          sortText: `0${method.name}`
         });
-      }
-    } else if (!braceContext.inside) {
-      for (const componentName of components) {
+      } else {
+        // Also add completion with parentheses for full method signature
         completions.push({
-          label: componentName,
-          kind: CompletionItemKind.Class,
-          detail: 'Viewi Component',
-
+          label: `${method.name}()`,
+          kind: CompletionItemKind.Function,
+          detail: `${method.returnType} - Component Method`,
           documentation: {
             kind: 'markdown',
-            value: `Viewi component \`${componentName}\``
+            value: `**Returns:** \`${method.returnType}\`\n\n**Parameters:** ${paramString || 'none'}\n\nComponent method from PHP class`
           },
-          insertText: `<${componentName}>$0</${componentName}>`,
+          insertText: braceContext.insideCode ? `${method.name}(${paramInsert})` : `{ ${method.name}(${paramInsert}) }`,
           insertTextFormat: 2, // Snippet format
-          filterText: componentName
-        });
-      }
-
-      // build-int virtual tags
-      for (const componentName of builtInControlTags) {
-        completions.push({
-          label: componentName,
-          kind: CompletionItemKind.Class,
-          detail: 'Viewi Control Tag',
-
-          documentation: {
-            kind: 'markdown',
-            value: `Viewi built-in \`${componentName}\``
-          },
-          insertText: `<${componentName}>$0</${componentName}>`,
-          insertTextFormat: 2, // Snippet format
-          filterText: componentName
+          sortText: `0${method.name}`
         });
       }
     }
 
+    // Check if we're inside a tag (for component suggestions)
+    if (!braceContext.insideCode && !braceContext.insideAttribute) {
+      if (isInsideTag(document, position)) {
+        for (const componentName of components) {
+          completions.push({
+            label: componentName,
+            kind: CompletionItemKind.Class,
+            detail: 'Viewi Component',
+            documentation: {
+              kind: 'markdown',
+              value: `Viewi component \`${componentName}\``
+            },
+            insertText: componentName
+          });
+        }
+
+        // build-int virtual tags
+        for (const componentName of builtInControlTags) {
+          completions.push({
+            label: componentName,
+            kind: CompletionItemKind.Class,
+            detail: 'Viewi Control Tag',
+
+            documentation: {
+              kind: 'markdown',
+              value: `Viewi built-in \`${componentName}\``
+            },
+            insertText: componentName,
+          });
+        }
+      } else {
+        for (const componentName of components) {
+          completions.push({
+            label: componentName,
+            kind: CompletionItemKind.Class,
+            detail: 'Viewi Component',
+
+            documentation: {
+              kind: 'markdown',
+              value: `Viewi component \`${componentName}\``
+            },
+            insertText: `<${componentName}>$0</${componentName}>`,
+            insertTextFormat: 2, // Snippet format
+            filterText: componentName
+          });
+        }
+
+        // build-int virtual tags
+        for (const componentName of builtInControlTags) {
+          completions.push({
+            label: componentName,
+            kind: CompletionItemKind.Class,
+            detail: 'Viewi Control Tag',
+
+            documentation: {
+              kind: 'markdown',
+              value: `Viewi built-in \`${componentName}\``
+            },
+            insertText: `<${componentName}>$0</${componentName}>`,
+            insertTextFormat: 2, // Snippet format
+            filterText: componentName
+          });
+        }
+      }
+    }
     return completions;
   }
 );
@@ -449,12 +462,13 @@ connection.onDefinition(
     if (!word) {
       return null;
     }
+
+    const braceContext = isInsideCodeRegion(document, position);
+    
     const component = await viewiParser.getComponentForHtmlFile(document.uri);
     if (!component) {
       return null;
     }
-
-
 
     const memberName = word.startsWith('$') ? word.substring(1) : word;
     const member =

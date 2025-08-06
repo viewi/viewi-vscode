@@ -1,0 +1,1 @@
+export type BraceType = 'single' | 'double' | 'attribute' | 'event' | 'tag' | null;
