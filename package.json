@@ -2,7 +2,7 @@
   "name": "viewi-components",
   "displayName": "Viewi Components",
   "description": "VSCode support for Viewi PHP/HTML components with syntax highlighting and autocomplete",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "icon": "viewi-logo-128.png",
   "publisher": "viewi",
   "repository": "https://github.com/viewi/viewi-vscode.git",

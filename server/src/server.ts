@@ -176,35 +176,6 @@ function isInsideTag(document: TextDocument, position: Position): boolean {
   return lastOpenTag > lastCloseTag;
 }
 
-function isInsideBraces(document: TextDocument, position: Position): { inside: boolean; type: 'single' | 'double' | null } {
-  const text = document.getText();
-  const offset = document.offsetAt(position);
-
-  // Check for double braces first
-  let lastDoubleBraceOpen = text.lastIndexOf('{{', offset);
-  let lastDoubleBraceClose = text.lastIndexOf('}}', offset);
-
-  if (lastDoubleBraceOpen > lastDoubleBraceClose) {
-    return { inside: true, type: 'double' };
-  }
-
-  // Check for single braces
-  let lastSingleBraceOpen = text.lastIndexOf('{', offset);
-  let lastSingleBraceClose = text.lastIndexOf('}', offset);
-
-  // Make sure it's not part of double braces
-  if (lastSingleBraceOpen > lastSingleBraceClose) {
-    const beforeBrace = text[lastSingleBraceOpen - 1];
-    const afterBrace = text[lastSingleBraceOpen + 1];
-
-    if (beforeBrace !== '{' && afterBrace !== '{') {
-      return { inside: true, type: 'single' };
-    }
-  }
-
-  return { inside: false, type: null };
-}
-
 function getLineTextBeforePosition(document: TextDocument, position: Position): string {
   return document.getText({
     start: { line: position.line, character: 0 },
