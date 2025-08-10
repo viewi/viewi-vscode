@@ -245,7 +245,7 @@ connection.onCompletion(
     // Check if we're inside braces (for PHP expressions) - with whitespace support
     const braceContext = isInsideCodeRegion(document, position);
     const insideEvent = braceContext.type === 'event';
-    console.log(['braceContext', braceContext]);
+    // console.log(['braceContext', braceContext]);
     const hasCursorDollar =
       // Check if user is typing a variable (starts with $)
       charBeforeCursor === '$' || (wordAtPosition.startsWith('$') && wordAtPosition.length > 1);

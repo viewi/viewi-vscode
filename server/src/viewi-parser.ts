@@ -48,8 +48,11 @@ export class ViewiParser {
   }
 
   public setSearchPaths(paths: string[]): void {
-    this.searchPaths = paths;
-    this.clearCache();
+    if (JSON.stringify(paths) !== JSON.stringify(this.searchPaths)) {
+      this.searchPaths = paths;
+      this.clearCache();
+      this.getAllComponents();
+    }
   }
 
   public clearCache(): void {
