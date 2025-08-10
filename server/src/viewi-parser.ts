@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { URI } from 'vscode-uri';
+import { systemMethods } from './systemMethods';
 
 export interface ViewiComponent {
   name: string;
@@ -141,7 +142,7 @@ export class ViewiParser {
 
     return {
       properties: component.properties.filter(p => p.visibility === 'public'),
-      methods: component.methods.filter(m => m.visibility === 'public')
+      methods: component.methods.filter(m => m.visibility === 'public' && !systemMethods.includes(m.name))
     };
   }
 
