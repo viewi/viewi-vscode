@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "esbuild",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "esbuild",
+			"detail": "esbuild ./server/src/server.ts --sourcemap --platform=node --bundle --outfile=./server/dist/server.js && esbuild ./client/src/extension.ts --sourcemap --external:vscode --platform=node --bundle --outfile=./client/dist/extension.js"
+		}
+	]
+}

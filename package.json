@@ -68,7 +68,7 @@
   "scripts": {
     "vscode:prepublish": "npm run esbuild",
     "compile-ts": "tsc -p ./client && tsc -p ./server",
-    "esbuild": "esbuild ./server/src/server.ts --platform=node --bundle --outfile=./server/dist/server.js && esbuild ./client/src/extension.ts --external:vscode --platform=node --bundle --outfile=./client/dist/extension.js",
+    "esbuild": "esbuild ./server/src/server.ts --sourcemap --platform=node --bundle --outfile=./server/dist/server.js && esbuild ./client/src/extension.ts --sourcemap --external:vscode --platform=node --bundle --outfile=./client/dist/extension.js",
     "watch": "tsc -b -w",
     "postinstall": "cd client && npm install && cd ../server && npm install && cd .."
   },
