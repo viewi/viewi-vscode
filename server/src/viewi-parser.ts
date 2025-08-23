@@ -4,15 +4,18 @@ import { URI } from 'vscode-uri';
 import { systemMethods } from './systemMethods';
 
 export interface ViewiComponent {
+  ready: boolean;
   name: string;
+  extendClass: string | null;
   phpFile: string;
-  htmlFile: string;
+  htmlFile: string | null;
   properties: ViewiProperty[];
   methods: ViewiMethod[];
 }
 
 export interface ViewiProperty {
   name: string;
+  className: string;
   type: string;
   visibility: 'public' | 'private' | 'protected';
   isStatic: boolean;
@@ -20,6 +23,7 @@ export interface ViewiProperty {
 
 export interface ViewiMethod {
   name: string;
+  className: string;
   returnType: string;
   visibility: 'public' | 'private' | 'protected';
   isStatic: boolean;
@@ -39,6 +43,7 @@ export class ViewiParser {
   private workspaceRoot: string;
   private searchPaths: string[] = ['./'];
   private isScanning = false;
+  private phpFilesByBaseName: { [key: string]: string } = {};
 
   constructor(workspaceRoot: string, searchPaths?: string[]) {
     this.workspaceRoot = workspaceRoot;
@@ -66,7 +71,8 @@ export class ViewiParser {
     const htmlFilePath = phpFilePath.replace(/\.php$/, '.html');
 
     if (fs.existsSync(phpFilePath) && fs.existsSync(htmlFilePath)) {
-      await this.parseComponent(phpFilePath, htmlFilePath);
+      const component = await this.parseComponent(phpFilePath, htmlFilePath);
+      component && await this.buildComponent(component);
     }
   }
 
@@ -100,10 +106,50 @@ export class ViewiParser {
           await this.scanDirectory(fullPath);
         }
       }
+      await this.buildMeta();
       this.isScanning = false;
       console.log(`Initial component scan finished. Found ${this.allComponentsCache.size} components.`);
     }
     return Array.from(this.allComponentsCache.values());
+  }
+
+  private async buildMeta() {
+    for (const key of this.allComponentsCache.keys()) {
+      const component = this.allComponentsCache.get(key)!;
+      await this.buildComponent(component);
+    }
+  }
+
+  private async buildComponent(component: ViewiComponent) {
+    if (component.ready) {
+      return;
+    }
+    component.ready = true;
+    // collect extends
+    if (component.extendClass) {
+      let extendedClass = this.allComponentsCache.get(component.extendClass);
+      if (!extendedClass) {
+        if (component.extendClass in this.phpFilesByBaseName) {
+          await this.parseComponent(this.phpFilesByBaseName[component.extendClass], null);
+        }
+        extendedClass = this.allComponentsCache.get(component.extendClass);
+      } else if (!extendedClass.ready) {
+        this.buildComponent(extendedClass);
+      }
+      if (extendedClass) {
+        // combine properties and methods
+        for (let property of extendedClass.properties) {
+          if (!component.properties.some(x => x.name === property.name)) {
+            component.properties.push(property);
+          }
+        }
+        for (let method of extendedClass.methods) {
+          if (!component.methods.some(x => x.name === method.name)) {
+            component.methods.push(method);
+          }
+        }
+      }
+    }
   }
 
   public async getComponentForHtmlFile(htmlFilePath: string): Promise<ViewiComponent | null> {
@@ -159,6 +205,7 @@ export class ViewiParser {
         if (entry.isDirectory()) {
           await this.scanDirectory(fullPath);
         } else if (entry.isFile() && entry.name.endsWith('.php')) {
+          this.phpFilesByBaseName[path.parse(entry.name).name] = fullPath;
           const htmlFile = fullPath.replace(/\.php$/, '.html');
           // console.log([entry, fullPath]);
           if (fs.existsSync(htmlFile)) {
@@ -171,36 +218,38 @@ export class ViewiParser {
     }
   }
 
-  private async parseComponent(phpFile: string, htmlFile: string): Promise<ViewiComponent | null> {
+  private async parseComponent(phpFile: string, htmlFile: string | null): Promise<ViewiComponent | null> {
     try {
       const phpStat = await fs.promises.stat(phpFile);
-      const htmlStat = await fs.promises.stat(htmlFile);
+      const htmlStat = htmlFile ? await fs.promises.stat(htmlFile) : null;
 
       const lastPhpMtime = this.fileMtimes.get(phpFile);
-      const lastHtmlMtime = this.fileMtimes.get(htmlFile);
+      const lastHtmlMtime = htmlFile ? this.fileMtimes.get(htmlFile) : null;
 
       const componentNameFromCache = this.phpFileToComponent.get(phpFile);
       if (
         componentNameFromCache &&
         this.allComponentsCache.has(componentNameFromCache) &&
         lastPhpMtime === phpStat.mtimeMs &&
-        lastHtmlMtime === htmlStat.mtimeMs
+        (!htmlFile || lastHtmlMtime === htmlStat!.mtimeMs)
       ) {
         return this.allComponentsCache.get(componentNameFromCache)!;
       }
 
       const content = await fs.promises.readFile(phpFile, 'utf-8');
-      const className = this.extractClassName(content);
+      const [className, extendClass] = this.extractClassName(content);
 
       if (!className) {
         return null;
       }
 
-      const properties = this.extractProperties(content);
-      const methods = this.extractMethods(content);
+      const properties = this.extractProperties(content, className);
+      const methods = this.extractMethods(content, className);
 
       const component: ViewiComponent = {
+        ready: false,
         name: className,
+        extendClass,
         phpFile,
         htmlFile,
         properties,
@@ -209,7 +258,7 @@ export class ViewiParser {
       this.allComponentsCache.set(className, component);
       this.phpFileToComponent.set(phpFile, className);
       this.fileMtimes.set(phpFile, phpStat.mtimeMs);
-      this.fileMtimes.set(htmlFile, htmlStat.mtimeMs);
+      htmlFile && this.fileMtimes.set(htmlFile, htmlStat!.mtimeMs);
 
       return component;
     } catch (error) {
@@ -217,13 +266,13 @@ export class ViewiParser {
     }
   }
 
-  private extractClassName(content: string): string | null {
+  private extractClassName(content: string): [string | null, string | null] {
     // Match class declaration, potentially with extends
-    const classMatch = content.match(/class\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+extends\s+[A-Za-z_][A-Za-z0-9_\\]*)?/);
-    return classMatch ? classMatch[1] : null;
+    const classMatch = content.match(/class\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+extends\s+([A-Za-z_][A-Za-z0-9_\\]*))?/);
+    return classMatch ? [classMatch[1], classMatch?.[2]] : [null, null];
   }
 
-  private extractProperties(content: string): ViewiProperty[] {
+  private extractProperties(content: string, className: string): ViewiProperty[] {
     const properties: ViewiProperty[] = [];
 
     // Match property declarations: visibility [static] [type] $name
@@ -238,6 +287,7 @@ export class ViewiParser {
 
       properties.push({
         name,
+        className,
         type,
         visibility,
         isStatic
@@ -247,7 +297,7 @@ export class ViewiParser {
     return properties;
   }
 
-  private extractMethods(content: string): ViewiMethod[] {
+  private extractMethods(content: string, className: string): ViewiMethod[] {
     const methods: ViewiMethod[] = [];
 
     // Match method declarations: [visibility] [static] function name(params): returnType
@@ -266,6 +316,7 @@ export class ViewiParser {
 
       methods.push({
         name,
+        className,
         returnType,
         visibility,
         isStatic,

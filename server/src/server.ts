@@ -470,7 +470,9 @@ connection.onDefinition(
       return null;
     }
 
-    const phpDocument = await TextDocument.create(component.phpFile, 'php', 1, await fs.promises.readFile(component.phpFile, 'utf-8'));
+    const targetComponent = viewiParser.getComponent(member.className) || component;
+
+    const phpDocument = await TextDocument.create(targetComponent.phpFile, 'php', 1, await fs.promises.readFile(targetComponent.phpFile, 'utf-8'));
     const regex = new RegExp(`((public|protected|private)\\s+)?(static\\s+)?(function\\s+)?([\\w\\d_]+\\s+)?\\$?${member.name}\\b`);
     const match = regex.exec(phpDocument.getText());
 
@@ -478,7 +480,7 @@ connection.onDefinition(
       const startPosition = phpDocument.positionAt(match.index);
       const endPosition = phpDocument.positionAt(match.index + match[0].length);
       return {
-        uri: component.phpFile,
+        uri: targetComponent.phpFile,
         range: {
           start: startPosition,
           end: endPosition
