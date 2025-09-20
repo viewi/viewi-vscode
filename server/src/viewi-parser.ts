@@ -28,6 +28,7 @@ export interface ViewiMethod {
   visibility: 'public' | 'private' | 'protected';
   isStatic: boolean;
   parameters: ViewiParameter[];
+  attributes: { [key: string]: any, GlobalEntry?: any };
 }
 
 export interface ViewiParameter {
@@ -39,6 +40,7 @@ export interface ViewiParameter {
 export class ViewiParser {
   private allComponentsCache: Map<string, ViewiComponent> = new Map();
   private phpFileToComponent: Map<string, string> = new Map();
+  private globalMethodToComponent: Map<string, string> = new Map();
   private fileMtimes: Map<string, number> = new Map();
   private workspaceRoot: string;
   private searchPaths: string[] = ['./'];
@@ -63,6 +65,7 @@ export class ViewiParser {
   public clearCache(): void {
     this.allComponentsCache.clear();
     this.phpFileToComponent.clear();
+    this.globalMethodToComponent.clear();
     this.fileMtimes.clear();
   }
 
@@ -79,6 +82,13 @@ export class ViewiParser {
   public getComponent(componentName: string): ViewiComponent | null {
     if (componentName && this.allComponentsCache.has(componentName)) {
       return this.allComponentsCache.get(componentName) || null;
+    }
+    return null;
+  }
+
+  public getGlobalMethodComponent(method: string): ViewiComponent | null {
+    if (method && this.globalMethodToComponent.has(method)) {
+      return this.getComponent(this.globalMethodToComponent.get(method)!);
     }
     return null;
   }
@@ -208,9 +218,8 @@ export class ViewiParser {
           this.phpFilesByBaseName[path.parse(entry.name).name] = fullPath;
           const htmlFile = fullPath.replace(/\.php$/, '.html');
           // console.log([entry, fullPath]);
-          if (fs.existsSync(htmlFile)) {
-            await this.parseComponent(fullPath, htmlFile);
-          }
+          const htmlExists = fs.existsSync(htmlFile);
+          await this.parseComponent(fullPath, htmlExists ? htmlFile : null, htmlExists ? false : true);
         }
       }
     } catch (error) {
@@ -218,7 +227,7 @@ export class ViewiParser {
     }
   }
 
-  private async parseComponent(phpFile: string, htmlFile: string | null): Promise<ViewiComponent | null> {
+  private async parseComponent(phpFile: string, htmlFile: string | null, onCondition: boolean = false): Promise<ViewiComponent | null> {
     try {
       const phpStat = await fs.promises.stat(phpFile);
       const htmlStat = htmlFile ? await fs.promises.stat(htmlFile) : null;
@@ -237,6 +246,9 @@ export class ViewiParser {
       }
 
       const content = await fs.promises.readFile(phpFile, 'utf-8');
+      if (!htmlFile && onCondition && !content.includes('#[GlobalEntry')) {
+        return null;
+      }
       const [className, extendClass] = this.extractClassName(content);
 
       if (!className) {
@@ -255,6 +267,11 @@ export class ViewiParser {
         properties,
         methods
       };
+      const globalMethods = methods.filter(x => x.attributes.GlobalEntry);
+      globalMethods.forEach(m => {
+        // global method
+        this.globalMethodToComponent.set(m.name, component.name);
+      })
       this.allComponentsCache.set(className, component);
       this.phpFileToComponent.set(phpFile, className);
       this.fileMtimes.set(phpFile, phpStat.mtimeMs);
@@ -302,25 +319,34 @@ export class ViewiParser {
 
     // Match method declarations: [visibility] [static] function name(params): returnType
     // If no visibility is specified, default to public
-    const methodRegex = /(?:(public|private|protected)\s+)?(static\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)(?:\s*:\s*([^{]+))?/g;
+    const methodRegex = /((?:#\[.*?\]\s*)*)\s*(?:(public|private|protected)\s+)?(static\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)(?:\s*:\s*([^{]+))?/g;
 
     let match;
     while ((match = methodRegex.exec(content)) !== null) {
-      const visibility = (match[1] as 'public' | 'private' | 'protected') || 'public'; // Default to public if not specified
-      const isStatic = !!match[2];
-      const name = match[3];
-      const paramString = match[4] || '';
-      const returnType = match[5] ? match[5].trim() : 'void';
+      const attributes = match[1];
+      const visibility = (match[2] as 'public' | 'private' | 'protected') || 'public'; // Default to public if not specified
+      const isStatic = !!match[3];
+      const name = match[4];
+      const paramString = match[5] || '';
+      const returnType = match[6] ? match[6].trim() : 'void';
 
       const parameters = this.parseParameters(paramString);
-
+      const attributeMap: { [key: string]: any } = {};
+      if (attributes) {
+        const phpAttributeRegex = /#\[\s*(?<attributes>(?:[^\]\s,()]+(?:\s*\([^)]*\))?)(?:\s*,\s*[^\]\s,()]+(?:\s*\([^)]*\))?)*)\s*\]/g;
+        const attributeMatches = attributes.matchAll(phpAttributeRegex);
+        for (const attributeMatch of attributeMatches) {
+          attributeMap[attributeMatch[1]] = 1;
+        }
+      }
       methods.push({
         name,
         className,
         returnType,
         visibility,
         isStatic,
-        parameters
+        parameters,
+        attributes: attributeMap
       });
     }
 

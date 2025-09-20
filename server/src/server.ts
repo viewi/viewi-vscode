@@ -15,7 +15,7 @@ import * as fs from 'fs';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
-import { ViewiParser } from './viewi-parser';
+import { ViewiMethod, ViewiParser, ViewiProperty } from './viewi-parser';
 import { isInsideCodeRegion } from './isInsideCodeRegion';
 
 // Create a connection for the server, using Node's IPC as a transport.
@@ -435,14 +435,23 @@ connection.onDefinition(
     }
 
     const braceContext = isInsideCodeRegion(document, position);
-    
+
     const component = await viewiParser.getComponentForHtmlFile(document.uri);
     if (!component) {
       return null;
     }
+    let variable = word.startsWith('$');
+    const memberName = variable ? word.substring(1) : word;
+    let member: ViewiMethod | ViewiProperty | undefined = undefined;
+    if (braceContext.insideAttributeName && braceContext.tagName) {
+      const propsTargetComponent = viewiParser.getComponent(braceContext.tagName);
+      if (propsTargetComponent) {
+        member = propsTargetComponent.properties.find(p => p.name === memberName);
+        variable = true;
+      }
+    }
 
-    const memberName = word.startsWith('$') ? word.substring(1) : word;
-    const member =
+    member = member ||
       component.properties.find(p => p.name === memberName) ||
       component.methods.find(m => m.name === memberName);
 
@@ -466,14 +475,21 @@ connection.onDefinition(
           };
         }
       }
-
-      return null;
+      // check global method
+      const globalComponent = viewiParser.getGlobalMethodComponent(word);
+      if (globalComponent !== null) {
+        member = globalComponent.methods.find(x => x.name === word);
+      }
+      if (!member) {
+        return null;
+      }
     }
 
     const targetComponent = viewiParser.getComponent(member.className) || component;
 
     const phpDocument = await TextDocument.create(targetComponent.phpFile, 'php', 1, await fs.promises.readFile(targetComponent.phpFile, 'utf-8'));
-    const regex = new RegExp(`((public|protected|private)\\s+)?(static\\s+)?(function\\s+)?([\\w\\d_]+\\s+)?\\$?${member.name}\\b`);
+    const precedessor = variable ? '$' : ' ';
+    const regex = new RegExp(`((public|protected|private)\\s+)?(static\\s+)?(function\\s+)?([\\w\\d_]+\\s+)?\\${precedessor}${member.name}\\b`);
     const match = regex.exec(phpDocument.getText());
 
     if (match) {
