@@ -40,7 +40,8 @@ export interface ViewiParameter {
 export class ViewiParser {
   private allComponentsCache: Map<string, ViewiComponent> = new Map();
   private phpFileToComponent: Map<string, string> = new Map();
-  private globalMethodToComponent: Map<string, string> = new Map();
+  private globalMethodToComponent: { [key: string]: string } = {};
+  private globalMethodsMap: { [key: string]: ViewiMethod } = {};
   private fileMtimes: Map<string, number> = new Map();
   private workspaceRoot: string;
   private searchPaths: string[] = ['./'];
@@ -65,7 +66,8 @@ export class ViewiParser {
   public clearCache(): void {
     this.allComponentsCache.clear();
     this.phpFileToComponent.clear();
-    this.globalMethodToComponent.clear();
+    this.globalMethodToComponent = {};
+    this.globalMethodsMap = {};
     this.fileMtimes.clear();
   }
 
@@ -87,10 +89,14 @@ export class ViewiParser {
   }
 
   public getGlobalMethodComponent(method: string): ViewiComponent | null {
-    if (method && this.globalMethodToComponent.has(method)) {
-      return this.getComponent(this.globalMethodToComponent.get(method)!);
+    if (method && method in this.globalMethodToComponent) {
+      return this.getComponent(this.globalMethodToComponent[method]);
     }
     return null;
+  }
+
+  public getGlobalMethods(): ViewiMethod[] {
+    return Object.values(this.globalMethodsMap);
   }
 
   public removeComponentByFile(filePath: string): void {
@@ -270,7 +276,8 @@ export class ViewiParser {
       const globalMethods = methods.filter(x => x.attributes.GlobalEntry);
       globalMethods.forEach(m => {
         // global method
-        this.globalMethodToComponent.set(m.name, component.name);
+        this.globalMethodToComponent[m.name] = component.name;
+        this.globalMethodsMap[m.name] = m;
       })
       this.allComponentsCache.set(className, component);
       this.phpFileToComponent.set(phpFile, className);

@@ -236,6 +236,7 @@ connection.onCompletion(
 
     const completions: CompletionItem[] = [];
     const { properties, methods } = await viewiParser.getPhpVariablesAndMethods(document.uri);
+    methods.push(...viewiParser.getGlobalMethods());
     const components = await viewiParser.getComponentTags(document.uri);
 
     const text = document.getText();
