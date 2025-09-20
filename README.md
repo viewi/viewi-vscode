@@ -141,6 +141,8 @@ vsce package
 vsce publish
 -- OR
 node_modules/.bin/vsce publish
+-- OR
+node_modules/.bin/vsce publish -p TOKEN
 ```
 
 ### Project Structure
