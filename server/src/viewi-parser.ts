@@ -7,6 +7,7 @@ export interface ViewiComponent {
   ready: boolean;
   name: string;
   extendClass: string | null;
+  traits: string[];
   phpFile: string;
   htmlFile: string | null;
   properties: ViewiProperty[];
@@ -140,28 +141,36 @@ export class ViewiParser {
     if (component.ready) {
       return;
     }
+
     component.ready = true;
-    // collect extends
-    if (component.extendClass) {
-      let extendedClass = this.allComponentsCache.get(component.extendClass);
-      if (!extendedClass) {
-        if (component.extendClass in this.phpFilesByBaseName) {
-          await this.parseComponent(this.phpFilesByBaseName[component.extendClass], null);
-        }
-        extendedClass = this.allComponentsCache.get(component.extendClass);
-      } else if (!extendedClass.ready) {
-        this.buildComponent(extendedClass);
+    // collect extends and traits
+    if (component.extendClass || component.traits.length) {
+      let list = [...component.traits];
+      if (component.extendClass) {
+        list.unshift(component.extendClass);
       }
-      if (extendedClass) {
-        // combine properties and methods
-        for (let property of extendedClass.properties) {
-          if (!component.properties.some(x => x.name === property.name)) {
-            component.properties.push(property);
+      for (let classOrTrait of list) {
+        let extendedOrTraitClass = this.allComponentsCache.get(classOrTrait);
+        if (!extendedOrTraitClass) {
+          if (classOrTrait in this.phpFilesByBaseName) {
+            await this.parseComponent(this.phpFilesByBaseName[classOrTrait], null);
           }
+          extendedOrTraitClass = this.allComponentsCache.get(classOrTrait);
         }
-        for (let method of extendedClass.methods) {
-          if (!component.methods.some(x => x.name === method.name)) {
-            component.methods.push(method);
+        if (extendedOrTraitClass) {
+          if (!extendedOrTraitClass.ready) {
+            await this.buildComponent(extendedOrTraitClass);
+          }
+          // combine properties and methods
+          for (let property of extendedOrTraitClass.properties) {
+            if (!component.properties.some(x => x.name === property.name)) {
+              component.properties.push(property);
+            }
+          }
+          for (let method of extendedOrTraitClass.methods) {
+            if (!component.methods.some(x => x.name === method.name)) {
+              component.methods.push(method);
+            }
           }
         }
       }
@@ -263,6 +272,7 @@ export class ViewiParser {
 
       const properties = this.extractProperties(content, className);
       const methods = this.extractMethods(content, className);
+      const traits = this.extractPhpClassTraits(content);
 
       const component: ViewiComponent = {
         ready: false,
@@ -271,7 +281,8 @@ export class ViewiParser {
         phpFile,
         htmlFile,
         properties,
-        methods
+        methods,
+        traits
       };
       const globalMethods = methods.filter(x => x.attributes.GlobalEntry);
       globalMethods.forEach(m => {
@@ -292,8 +303,38 @@ export class ViewiParser {
 
   private extractClassName(content: string): [string | null, string | null] {
     // Match class declaration, potentially with extends
-    const classMatch = content.match(/class\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+extends\s+([A-Za-z_][A-Za-z0-9_\\]*))?/);
+    const classMatch = content.match(/(?:class|trait)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+extends\s+([A-Za-z_][A-Za-z0-9_\\]*))?/);
     return classMatch ? [classMatch[1], classMatch?.[2]] : [null, null];
+  }
+
+  /**
+   * Extracts PHP class traits from the active text editor's content.
+   * @returns {string[]} Array of unique trait names or empty array if none found.
+   */
+  private extractPhpClassTraits(text: string): string[] {
+    const traitRegex = /use\s+([\w\s,]+);/g; // Matches "use Trait1, Trait2;"
+    const classRegex = /(?:class|trait)\s+\w+\s*(?:extends\s+\w+\s*)?(?:implements\s+[\w\s,]+)?{[^}]*}/; // Matches class definition
+    const traits = new Set<string>();
+
+    // Find class definition
+    const classMatch = text.match(classRegex);
+    if (!classMatch) {
+      return [];
+    }
+
+    // Extract traits within the class body
+    let match;
+    while ((match = traitRegex.exec(classMatch[0])) !== null) {
+      // Split traits by comma and trim whitespace
+      const traitList = match[1].split(',').map(trait => trait.trim());
+      traitList.forEach(trait => {
+        if (trait) {
+          traits.add(trait);
+        }
+      });
+    }
+
+    return Array.from(traits);
   }
 
   private extractProperties(content: string, className: string): ViewiProperty[] {

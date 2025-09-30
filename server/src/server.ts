@@ -270,7 +270,7 @@ connection.onCompletion(
     }
 
     // component props
-    if (braceContext.insideTag && braceContext.tagName) {
+    if ((braceContext.insideTag || braceContext.insideAttributeName) && braceContext.tagName) {
       const propsTargetComponent = viewiParser.getComponent(braceContext.tagName);
       if (propsTargetComponent) {
 
@@ -347,7 +347,7 @@ connection.onCompletion(
     }
 
     // Check if we're inside a tag (for component suggestions)
-    if (!braceContext.insideCode && !braceContext.insideAttribute) {
+    if (!braceContext.insideCode && !braceContext.insideAttribute && !braceContext.insideTag) {
       if (isInsideTag(document, position)) {
         for (const componentName of components) {
           completions.push({

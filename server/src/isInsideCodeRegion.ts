@@ -25,7 +25,8 @@ export function isInsideCodeRegion(document: TextDocument, position: Position): 
     let catchEvent: boolean = true;
     let catchAttributeValue: boolean = true;
     let catchAttributeName: boolean = true;
-
+    let word = '';
+    let catchWord = true;
 
     //  {{ }} <tag attrName=" attrValue $test " (event)="myEvent($event)"> text
 
@@ -44,6 +45,14 @@ export function isInsideCodeRegion(document: TextDocument, position: Position): 
             }
         }
 
+        if (catchWord) {
+            if (/[a-zA-Z0-9_$]/.test(text[i])) {
+                word = text[i] + word;
+            } else {
+                catchWord = false;
+            }
+        }
+
         if (catchTag) {
             if (text[i] === '>') {
                 catchTag = false;
@@ -51,7 +60,7 @@ export function isInsideCodeRegion(document: TextDocument, position: Position): 
                 // looking for tag name, attribute name and value or event
                 if (catchAttributeName && (text[i] === ' ' || text[i] === '\n' || text[i] === '\r')) {
                     // attributeName
-                    insideAttributeName = true;
+                    insideAttributeName = !!word;
                     catchAttributeName = false;
                 } else if (catchAttributeValue && text[i] === '"') {
                     if (i > 0 && text[i - 1] === '=') {
